@@ -73,26 +73,30 @@ impl Library {
         }
         //Looping through the Vec of Book.
         //it is a & because it just needs to read about the Book not have the function take ownership of it
-        for book in &self.books {
-            //This is the first match statement and these come in very handy when dealing with the Option enum
-            //match statements need to be extensive, so every different value that could happen needs to be written out
-            //this will look at the borrower field on the Book and Option can either be Some, which will then hold a value
-            //or it can be none, Rust has no "Null" it just isn't a thing that exists.
-            //I think that it has to do with not having Null Pointer Exceptions.
-            match &book.borrower {
-                //if it matches on Some, it takes in the value it will print the line after it.
-                //this syntax is something that I have seen a lot, the first {} will map to book.title
-                // and the second {} will map to value which will be who has it checked out.
-                Some(value) => println!("{} is Checked out by {}", book.title,value),
-                //if the borrower field is None, it will print this.
-                None => println!("Book is on the shelf")
+        else {
+            println!("Books that are available: ");
+            for book in &self.books {
+                //This is the first match statement and these come in very handy when dealing with the Option enum
+                //match statements need to be extensive, so every different value that could happen needs to be written out
+                //this will look at the borrower field on the Book and Option can either be Some, which will then hold a value
+                //or it can be none, Rust has no "Null" it just isn't a thing that exists.
+                //I think that it has to do with not having Null Pointer Exceptions.
+                match &book.borrower {
+                    //if it matches on Some, it takes in the value it will print the line after it.
+                    //this syntax is something that I have seen a lot, the first {} will map to book.title
+                    // and the second {} will map to value which will be who has it checked out.
+                    Some(value) => println!("{} is Checked out by {}", book.title, value),
+                    //if the borrower field is None, it will print this.
+                    None => println!(" ")
+                }
+                //this just checks if the book is available and prints the title if it is.
+                if book.is_available() {
+                    println!("{} is available", book.title);
+                }
+                //else { println!("{} is not available", book.title); }
             }
-            //this just checks if the book is available and prints the title if it is.
-            if book.is_available() {
-                println!("{} is available", book.title);
-            }
-            //else { println!("{} is not available", book.title); }
         }
+        println!("   ")
     }
 
     //should take in a books title and print everything about it.
@@ -107,49 +111,76 @@ impl Library {
         }
     }
 
-    pub fn check_out_book(&mut self, title: String, who: String) -> Result<(String), LibraryError>{
-        //somehow need to Change borrowed from None to Some.
+    //This  is a more complicated method. It takes in a mutable reference to the library so it can change one of its book records
+    //it also needs to take in a title and who so it knows what book to check out to who.
+    // a new thing is that it returns a Result. Result is how rust handles errors, like a try catch
+    //if  everything is good, it returns an Ok((title)) which is the first spot seen in Result, String
+    // is there is an error it expects ann Err(). Which you can see it takes in a LibraryError,
+    // where I can then use the enum I made at the top to store what error occurred and then later use a match statement to print out the error message.
+    pub fn check_out_book(&mut self, title: String, who: String) -> Result<String, LibraryError>{
+        //looping through the Vec
         for book in &mut self.books {
+            //if the current book title matches the title that was passed in
             if book.title == title {
+                //if the book is not available return and error that is holding the already checked out title.
                 if !book.is_available() {
                     return Err(LibraryError::AlreadyCheckedOut(title));
                 } else {
-                    //&mut book.borrower = &mut Option::Some(who)
+                    //the book is available, and we should make the borrower go from None to Some holding the who
                     book.borrower = Some(who);
+                    // returns Ok, with the title. Originally just had it as Ok(()) which return an empty Ok()
+                    //and then instead of Return<String I had Return<(). this will compile but I wanted to
+                    //use the title later on so I needed it to be returned with the Ok.
                     return Ok((title))
                 }
             }
         }
+        //if it makes it here, book has not been found.
         Err(LibraryError::NotFound(title))
     }
 
+    //This method is very similar to the checkout method just in reverse.
+    //Just need to take in a mutable reference to the library and the title of the book they want to return
+    //also want to return a Result so we can match on that later.
     pub fn return_book(&mut self, title: String) -> Result<(String), LibraryError> {
+        //Looping through the books vec
         for book in &mut self.books {
+            //if the books title == the title passed in
             if book.title == title {
+                //and it is available, return an error that it was not checked out to begin with.
                 if book.is_available(){
                     return Err(LibraryError::NotCheckedOut(title));
                 }
+                //else return and Ok and set the borrower back to None and it is available to checkout again.
                 else {
                     book.borrower = None;
                     return Ok((title));
                 }
             }
         }
+        //if it makes it here, the title was wrong or the book was not found in the library.
         Err(LibraryError::NotFound(title))
     }
 
 }
 
 //Main function where everything gets set up.
+//This is where I create a new library and make books to put in it and I can call functions on it.
 fn main() {
+    //Creating a new library that is mutable since I will be changing things about the books that it owns.
     let mut library = Library::new();
-    //let dune = Book::new("Dune", "Frank Herbert");
-   // library.add_book(dune);
+    //Making a new book with a title and author, setting a vaiable to it.
+    let dune = Book::new("Dune", "Frank Herbert");
+    let harry_potter = Book::new("Harry Potter", "JK Rowling");
+    //Calling the add_book function on dune so it gets added to the library I created
+   library.add_book(dune);
+    library.add_book(harry_potter);
+    //Calling the list_books method so I can see dune in there.
     library.list_books();
 
     //This is all taking the result from check_out_books and deciding what to print based on what gets returned
    let result_checkout = library.check_out_book("Dune".to_string(), "Damon".to_string());
-    //This statements takes what was returned in
+    //This statements takes what was returned in Result to decide which one matches and then prints that one.
     match result_checkout{
         Ok(title) => println!("{} Checked out successfully!!", title),
         Err(LibraryError::NotFound(title)) => println!("{} is not found", title),
@@ -164,8 +195,9 @@ fn main() {
         Ok((title)) => println!("{} has been returned successfully!!", title),
         Err(LibraryError::NotFound(title)) => println!("{} was not found", title),
         Err(LibraryError::NotCheckedOut(title)) => println!("you never had {} checked out", title),
-        //This one should never happen but good to have anyways I guess.
+        //This one should never happen but good to have anyway I guess.
         Err(LibraryError::AlreadyCheckedOut(title)) => println!("{} Is already checked out", title)
     }
 
+    library.find_books_by_title("Harry Potter");
 }
